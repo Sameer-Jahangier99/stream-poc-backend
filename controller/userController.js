@@ -7,10 +7,9 @@ require("dotenv").config();
 const {
   userSignupSchema,
   userLoginSchema,
+  userLogoutSchema,
 } = require("../validationSchema/user");
 
-
-console.log('process.env.STREAM_API_KEY', process.env.STREAM_API_KEY);
 const streamChat = StreamChat.getInstance(
   process.env.STREAM_API_KEY,
   process.env.STREAM_PRIVATE_API_KEY
@@ -31,7 +30,6 @@ const registerUser = asyncHandler(async (req, res) => {
   }
   const { id, name, image } = value;
 
-
   const existingUsers = await streamChat.queryUsers({ id });
 
   if (existingUsers.users.length > 0) {
@@ -40,11 +38,15 @@ const registerUser = asyncHandler(async (req, res) => {
   }
 
   await streamChat.upsertUser({ id, name, image });
+  res.status(200).json({
+    message: "User Registered successfully",
+  });
+
 });
 
 // @desc		Login existing user
 // @route		/api/users/login
-// @access		Public
+// @access	Public
 const loginUser = asyncHandler(async (req, res) => {
   const { error, value } = userLoginSchema.validate(req.body, {
     abortEarly: false,
@@ -58,19 +60,48 @@ const loginUser = asyncHandler(async (req, res) => {
 
   const {
     users: [user],
-  } = await streamChat.queryUsers({ id })
-  if (user == null) return res.status(401).send()
+  } = await streamChat.queryUsers({ id });
+  if (user == null) return res.status(401).send();
 
-  const token = streamChat.createToken(id)
-  TOKEN_USER_ID_MAP.set(token, user.id)
+  const token = streamChat.createToken(id);
+  TOKEN_USER_ID_MAP.set(token, user.id);
 
   res.status(200).json({
     token,
     user: { name: user.name, id: user.id, image: user.image },
     message: "User login successfully",
   });
-  
-
 });
 
-module.exports = { registerUser, loginUser };
+// @desc		Logout User
+// @route		/logout
+// @access	Public
+const logoutUser = asyncHandler(async (req, res) => {
+  const { error, value } = userLogoutSchema.validate(req.body, {
+    abortEarly: false,
+  });
+
+  if (error) {
+    return res.status(422).json({ error: error.details });
+  }
+
+  const { token } = value;
+
+  const id = TOKEN_USER_ID_MAP.get(token);
+
+  if (id == null) {
+    res.status(400);
+    throw new Error("User Not Found");
+  }
+
+
+  await streamChat.revokeUserToken(id, new Date());
+  TOKEN_USER_ID_MAP.delete(token);
+ 
+
+  res.status(200).json({
+    message: "User logout successfully",
+  });
+});
+
+module.exports = { registerUser, loginUser, logoutUser };

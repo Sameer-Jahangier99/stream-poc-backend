@@ -10,5 +10,10 @@ const userLoginSchema = Joi.object({
   id: Joi.string().required(),
 });
 
+const userLogoutSchema = Joi.object({
+  token: Joi.string().required(),
+});
 
-module.exports = { userSignupSchema, userLoginSchema };
+
+
+module.exports = { userSignupSchema, userLoginSchema, userLogoutSchema };
